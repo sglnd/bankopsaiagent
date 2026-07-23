@@ -1,0 +1,90 @@
+name: bankops-mcp-hub
+
+x-common: &common
+  restart: unless-stopped
+  networks:
+    - bankops-network
+  volumes:
+    - ./workspace:/workspace
+    - ./logs:/var/log/bankops
+    - ./config:/config:ro
+
+services:
+  playwright-mcp:
+    <<: *common
+    build:
+      context: ./services/playwright
+      args:
+        PLAYWRIGHT_IMAGE: ${PLAYWRIGHT_IMAGE}
+    image: bankops/playwright-mcp:local
+    container_name: bankops-playwright-mcp
+    ports:
+      - "${PLAYWRIGHT_PORT}:8931"
+    command: ["--host", "0.0.0.0", "--port", "8931", "--headless", "--browser", "chromium"]
+    security_opt:
+      - no-new-privileges:true
+    shm_size: 1gb
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8931/mcp').then(r => process.exit(r.status < 500 ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+  filesystem-mcp:
+    <<: *common
+    build:
+      context: ./services/filesystem
+      args:
+        NODE_IMAGE: ${NODE_IMAGE}
+        MCP_PROXY_VERSION: ${MCP_PROXY_VERSION}
+    image: bankops/filesystem-mcp:local
+    container_name: bankops-filesystem-mcp
+    ports:
+      - "${FILESYSTEM_PORT}:8932"
+    command: ["mcp-proxy", "--port", "8932", "--", "mcp-server-filesystem", "/workspace"]
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8932/mcp').then(r => process.exit(r.status < 500 ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+  git-mcp:
+    <<: *common
+    build:
+      context: ./services/git
+      args:
+        NODE_IMAGE: ${NODE_IMAGE}
+        MCP_PROXY_VERSION: ${MCP_PROXY_VERSION}
+    image: bankops/git-mcp:local
+    container_name: bankops-git-mcp
+    ports:
+      - "${GIT_PORT}:8933"
+    command: ["mcp-proxy", "--port", "8933", "--", "python", "-m", "mcp_server_git", "--repository", "/workspace"]
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8933/mcp').then(r => process.exit(r.status < 500 ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+  # Deliberately disabled by default: this is a template, not an SSH executor.
+  # Enable explicitly with: docker compose --profile ssh up -d
+  ssh-mcp:
+    <<: *common
+    profiles: ["ssh"]
+    build: ./services/ssh
+    image: bankops/ssh-mcp-template:local
+    container_name: bankops-ssh-mcp
+    ports:
+      - "${SSH_PORT}:8934"
+
+networks:
+  bankops-network:
+    name: bankops-network
+    driver: bridge
