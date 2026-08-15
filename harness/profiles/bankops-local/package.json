@@ -1,0 +1,20 @@
+{
+  "name": "dsh-profile-bankops-local-template",
+  "private": true,
+  "description": "Expected local DeepSeek Harness composition for BankOps change impact analysis",
+  "dependencies": {
+    "@bankops/dsh-core": "link:../../plugins/bankops-core",
+    "@bankops/dsh-change-impact": "link:../../plugins/bankops-change-impact",
+    "@deepseek-ai/dsh-headless": "0.1.0-rc.6"
+  },
+  "dsh": {
+    "profile": {
+      "bundles": [
+        "@deepseek-ai/dsh-base",
+        "@deepseek-ai/dsh-headless",
+        "@bankops/dsh-core",
+        "@bankops/dsh-change-impact"
+      ]
+    }
+  }
+}

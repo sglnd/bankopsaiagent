@@ -1,0 +1,49 @@
+{
+  "repository": "https://github.com/deepseek-ai/deepseek-harness",
+  "sourceCommit": "47f943859bef60e4160492346772ded9b24f765a",
+  "sourceCommitNote": "GitHub master release commit inspected for the plugin API; npm rc.6 was published later and did not expose gitHead metadata.",
+  "packageVersion": "0.1.0-rc.6",
+  "packagePublishedAt": "2026-08-13T12:35:03.812Z",
+  "committedAt": "2026-08-13T11:38:46Z",
+  "releaseCommitMessage": "release: dsh@0.1.0-rc.5 & publish the dsh family publicly",
+  "verifiedAt": "2026-08-14",
+  "plugins": [
+    {
+      "name": "@omdsh-dev/dsh-genui",
+      "version": "0.8.1",
+      "repository": "https://github.com/omdsh-dev/dsh-genui",
+      "commit": "ceab0edebba254c282f6d984f897da68426b9439"
+    },
+    {
+      "name": "@dsh-community/dsh-deeplink",
+      "version": "0.5.0",
+      "repository": "https://github.com/qyw233/dsh-deeplink",
+      "commit": "0ec5da351b246dfcbf9a91a3d0c7b7f2699370e6"
+    },
+    {
+      "name": "dsh-eval-harness",
+      "version": "0.2.0",
+      "repository": "https://github.com/BiBoyang/dsh-eval-harness",
+      "commit": "055e1a74879f52cc3777db6dde5a62054bc78396",
+      "status": "deferred: source has no lib output and its rc.1 dependency graph conflicts with DSH rc.6"
+    },
+    {
+      "name": "dsh-context-doctor",
+      "version": "0.5.0",
+      "repository": "https://github.com/Zhenyu98/dsh-context-doctor",
+      "commit": "4a91502c106f7fed86981421c740566abf309977"
+    },
+    {
+      "name": "@deepseek-ai/dsh-plugin-check",
+      "version": "0.0.1",
+      "repository": "https://github.com/omdsh-dev/dsh-plugin-check",
+      "commit": "397aa26df241aca530aa65a08484a664f7d555ad"
+    },
+    {
+      "name": "@deepseek-ai/dsh-security-audit",
+      "version": "0.0.1",
+      "repository": "https://github.com/omdsh-dev/dsh-security-audit",
+      "commit": "b1974e1ac18c5dfd83eef414ea0b1187d076e431"
+    }
+  ]
+}

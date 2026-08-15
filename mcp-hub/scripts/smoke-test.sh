@@ -16,6 +16,10 @@ declare -a endpoints=(
   "playwright:${PLAYWRIGHT_PORT:-8931}"
   "filesystem:${FILESYSTEM_PORT:-8932}"
   "git:${GIT_PORT:-8933}"
+  "changeinfo:${CHANGEINFO_PORT:-8941}"
+  "cmdb:${CMDB_PORT:-8942}"
+  "alertinfo:${ALERTINFO_PORT:-8943}"
+  "perfinfo:${PERFINFO_PORT:-8944}"
 )
 
 initialize() {

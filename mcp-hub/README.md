@@ -23,6 +23,19 @@ Playwright Filesystem   Git    SSH (template)
   8931       8932      8933        8934
 ```
 
+The change-impact test stack adds one Elasticsearch data plane and four
+separate domain MCP boundaries:
+
+```text
+ChangeInfo :8941   CMDB :8942   AlertInfo :8943   PerfInfo :8944
+        \             |              |              /
+                  Elasticsearch :9200
+```
+
+The seeded scenarios are `CHG20260814001` (payment application release) and
+`CHG20260814002` (DMZ-to-core firewall opening). Re-running
+`elasticsearch-seed` recreates all six `bankops-*-v1` indices deterministically.
+
 All enabled services use the `bankops-network` Docker network. The host
 directories `workspace/`, `logs/`, and `config/` are mounted into each service;
 only `workspace/` is granted to the official filesystem/Git servers as their
@@ -40,6 +53,11 @@ scripts/smoke-test.sh
 
 Stop the Hub with `docker compose down`.
 
+For offline production delivery, set `TARGET_PLATFORM` in `.env` to the
+target host platform before building. The supplied value, `linux/amd64`, is
+correct for an `x86_64` Linux host. Build and export on the connected machine,
+then import the resulting image archive on the disconnected host.
+
 ## MCP endpoints
 
 | Service | Primary endpoint | Compatibility endpoint |
@@ -48,6 +66,10 @@ Stop the Hub with `docker compose down`.
 | Filesystem | `http://localhost:8932/mcp` | `http://localhost:8932/sse` |
 | Git | `http://localhost:8933/mcp` | `http://localhost:8933/sse` |
 | SSH | Reserved: `http://localhost:8934` | Disabled template |
+| ChangeInfo | `http://localhost:8941/mcp` | — |
+| CMDB | `http://localhost:8942/mcp` | — |
+| AlertInfo | `http://localhost:8943/mcp` | — |
+| PerfInfo | `http://localhost:8944/mcp` | — |
 
 `/mcp` is the preferred Streamable HTTP endpoint. Filesystem and Git are
 official reference MCP servers that are stdio-only; the dedicated `mcp-proxy`
@@ -81,6 +103,7 @@ initialization request/session.
 ```bash
 scripts/build.sh                    # rebuild the images
 scripts/smoke-test.sh               # perform MCP initialize requests on all enabled services
+node scripts/test-domain-mcps.mjs   # initialize, list tools, and call all four domain MCPs
 scripts/export.sh                   # create exports/bankops-mcp-images.tar
 scripts/import.sh /path/to/images.tar
 docker compose --profile ssh up -d  # start the intentionally inert SSH template

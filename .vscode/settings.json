@@ -1,0 +1,37 @@
+{
+  "files.exclude": {
+    "harness/plugins/external/**/src": true,
+    "harness/plugins/external/**/tests": true,
+    "harness/plugins/external/**/scripts": true,
+    "harness/plugins/external/**/tsconfig*.json": true,
+    "harness/plugins/external/**/vitest*.{js,ts,mjs,mts}": true
+  },
+  "files.readonlyInclude": {
+    "harness/plugins/external/**": true
+  },
+  "files.watcherExclude": {
+    "harness/plugins/external/**/src/**": true,
+    "harness/plugins/external/**/tests/**": true,
+    "harness/plugins/external/**/node_modules/**": true
+  },
+  "search.exclude": {
+    "harness/plugins/external/**/src": true,
+    "harness/plugins/external/**/tests": true,
+    "harness/plugins/external/**/node_modules": true
+  },
+  "npm.exclude": "harness/plugins/external/**",
+  "typescript.preferences.autoImportFileExcludePatterns": [
+    "harness/plugins/external/**"
+  ],
+  "javascript.preferences.autoImportFileExcludePatterns": [
+    "harness/plugins/external/**"
+  ],
+  "yaml.customTags": [
+    "!!js scalar"
+  ],
+  "yaml.schemas": {
+    "./harness/schemas/cordis-patch.schema.json": [
+      "harness/**/cordis.patch.yml"
+    ]
+  }
+}

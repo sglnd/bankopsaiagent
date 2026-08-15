@@ -1,0 +1,12 @@
+# risky fixture settings — 开放监听、弱 CORS、外部明文、userinfo、代理
+server:
+  host: 0.0.0.0
+  port: 3080
+cors:
+  origins:
+    - "*"
+model:
+  discovery: http://model-api.example.com/v1/models
+api_base: https://user:pass@example.com/api
+proxy:
+  https: http://proxy.example.com:8080

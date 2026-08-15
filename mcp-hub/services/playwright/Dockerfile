@@ -5,4 +5,4 @@ RUN npm install --global @playwright/mcp@latest \
     && npm cache clean --force
 
 EXPOSE 8931
-ENTRYPOINT ["npx", "@playwright/mcp@latest"]
+ENTRYPOINT ["playwright-mcp"]

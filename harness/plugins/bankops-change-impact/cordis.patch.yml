@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=../../schemas/cordis-patch.schema.json
+# Business bundle: domain Skill only. Shared persona and MCP clients live in
+# @bankops/dsh-core so other BankOps business plugins can reuse them safely.
+- insert:
+    - id: bankops-change-impact-skill
+      name: '@bankops/dsh-change-impact'
+      inject: [skills]

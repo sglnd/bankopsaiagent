@@ -1,0 +1,9 @@
+{
+  "caseId": "high-risk",
+  "changeId": "CHG20260814001",
+  "expected": {
+    "risk": "high",
+    "mustCover": ["dependencies", "database", "alarms", "logs", "metrics", "history"],
+    "mustCiteEvidence": true
+  }
+}

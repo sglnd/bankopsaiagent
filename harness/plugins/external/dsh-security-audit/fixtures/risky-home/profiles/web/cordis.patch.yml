@@ -1,0 +1,5 @@
+# risky fixture patch — 未固定 commit 的 git 来源
+- insert:
+    - id: tool-ghost
+      name: '@deepseek-ai/dsh-tool-ghost'
+      source: git+https://github.com/example/dsh-tool-ghost.git

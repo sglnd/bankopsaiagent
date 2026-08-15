@@ -1,0 +1,12 @@
+{
+  "name": "web-profile",
+  "version": "0.0.1",
+  "private": true,
+  "dsh": {
+    "profile": {
+      "bundles": [
+        "@deepseek-ai/dsh-tool-regex"
+      ]
+    }
+  }
+}

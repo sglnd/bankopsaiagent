@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bankops.local/schemas/cordis-patch.schema.json",
+  "title": "DeepSeek Harness Cordis Patch",
+  "description": "BankOps subset of the Cordis patch-list DSL used by DeepSeek Harness bundles and profiles.",
+  "type": "array",
+  "items": {
+    "oneOf": [
+      {
+        "$ref": "#/$defs/pluginRow"
+      },
+      {
+        "$ref": "#/$defs/insertOperation"
+      }
+    ]
+  },
+  "$defs": {
+    "pluginRow": {
+      "type": "object",
+      "description": "Insert a new Cordis plugin row or replace fields on an existing row selected by id.",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "inject": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "config": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "disabled": {
+          "type": "boolean"
+        },
+        "isolate": {
+          "type": [
+            "boolean",
+            "string",
+            "object"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "insertOperation": {
+      "type": "object",
+      "required": [
+        "insert"
+      ],
+      "properties": {
+        "insert": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/pluginRow"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

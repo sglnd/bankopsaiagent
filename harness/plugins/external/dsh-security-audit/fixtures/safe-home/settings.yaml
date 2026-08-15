@@ -1,0 +1,9 @@
+# safe fixture settings — 仅 loopback 监听与发现
+server:
+  host: 127.0.0.1
+  port: 3080
+model:
+  discovery: http://127.0.0.1:3080/v1/models
+cors:
+  origins:
+    - http://localhost:5173

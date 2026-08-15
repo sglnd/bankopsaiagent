@@ -1,5 +1,3 @@
-name: bankops-mcp-hub
-
 x-common: &common
   restart: unless-stopped
   networks:
@@ -10,6 +8,121 @@ x-common: &common
     - ./config:/config:ro
 
 services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTICSEARCH_VERSION:-8.17.10}
+    container_name: bankops-elasticsearch
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      xpack.ml.enabled: "false"
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    ports:
+      - "127.0.0.1:${ELASTICSEARCH_PORT:-9200}:9200"
+    volumes:
+      - bankops-es-data:/usr/share/elasticsearch/data
+    networks:
+      - bankops-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9200/_cluster/health?wait_for_status=yellow >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
+
+  elasticsearch-seed:
+    image: bankops/domain-mcp:local
+    container_name: bankops-elasticsearch-seed
+    restart: "no"
+    environment:
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+    volumes:
+      - ./seed:/seed:ro
+    entrypoint: ["node"]
+    command: ["/seed/seed.js"]
+    networks:
+      - bankops-network
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+  changeinfo-mcp:
+    build:
+      context: ./services/bankops-domain
+      args:
+        NODE_IMAGE: ${NODE_IMAGE}
+    image: bankops/domain-mcp:local
+    container_name: bankops-changeinfo-mcp
+    restart: unless-stopped
+    environment:
+      BANKOPS_DOMAIN: changeinfo
+      PORT: 8941
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+    ports:
+      - "127.0.0.1:${CHANGEINFO_PORT:-8941}:8941"
+    networks:
+      - bankops-network
+    depends_on:
+      elasticsearch-seed:
+        condition: service_completed_successfully
+    healthcheck: &domain-healthcheck
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:' + process.env.PORT + '/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  cmdb-mcp:
+    image: bankops/domain-mcp:local
+    container_name: bankops-cmdb-mcp
+    restart: unless-stopped
+    environment:
+      BANKOPS_DOMAIN: cmdb
+      PORT: 8942
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+    ports:
+      - "127.0.0.1:${CMDB_PORT:-8942}:8942"
+    networks:
+      - bankops-network
+    depends_on:
+      elasticsearch-seed:
+        condition: service_completed_successfully
+    healthcheck: *domain-healthcheck
+
+  alertinfo-mcp:
+    image: bankops/domain-mcp:local
+    container_name: bankops-alertinfo-mcp
+    restart: unless-stopped
+    environment:
+      BANKOPS_DOMAIN: alertinfo
+      PORT: 8943
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+    ports:
+      - "127.0.0.1:${ALERTINFO_PORT:-8943}:8943"
+    networks:
+      - bankops-network
+    depends_on:
+      elasticsearch-seed:
+        condition: service_completed_successfully
+    healthcheck: *domain-healthcheck
+
+  perfinfo-mcp:
+    image: bankops/domain-mcp:local
+    container_name: bankops-perfinfo-mcp
+    restart: unless-stopped
+    environment:
+      BANKOPS_DOMAIN: perfinfo
+      PORT: 8944
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+    ports:
+      - "127.0.0.1:${PERFINFO_PORT:-8944}:8944"
+    networks:
+      - bankops-network
+    depends_on:
+      elasticsearch-seed:
+        condition: service_completed_successfully
+    healthcheck: *domain-healthcheck
+
   playwright-mcp:
     <<: *common
     build:
@@ -63,7 +176,19 @@ services:
     container_name: bankops-git-mcp
     ports:
       - "${GIT_PORT}:8933"
-    command: ["mcp-proxy", "--port", "8933", "--", "python", "-m", "mcp_server_git", "--repository", "/workspace"]
+    command:
+      - sh
+      - -ec
+      - |
+        git config --global --add safe.directory /workspace
+        if ! git -C /workspace rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+          git -C /workspace init -q
+          git -C /workspace symbolic-ref HEAD refs/heads/main
+          git -C /workspace config user.name 'BankOps MCP'
+          git -C /workspace config user.email 'bankops-mcp@localhost'
+          git -C /workspace commit --allow-empty -m 'chore: initialize MCP workspace'
+        fi
+        exec mcp-proxy --port 8933 -- python3 -m mcp_server_git --repository /workspace
     security_opt:
       - no-new-privileges:true
     healthcheck:
@@ -73,18 +198,11 @@ services:
       retries: 6
       start_period: 15s
 
-  # Deliberately disabled by default: this is a template, not an SSH executor.
-  # Enable explicitly with: docker compose --profile ssh up -d
-  ssh-mcp:
-    <<: *common
-    profiles: ["ssh"]
-    build: ./services/ssh
-    image: bankops/ssh-mcp-template:local
-    container_name: bankops-ssh-mcp
-    ports:
-      - "${SSH_PORT}:8934"
-
 networks:
   bankops-network:
     name: bankops-network
     driver: bridge
+
+volumes:
+  bankops-es-data:
+    name: bankops-es-data

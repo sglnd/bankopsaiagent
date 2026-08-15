@@ -1,0 +1,11 @@
+{
+  "name": "@deepseek-ai/dsh-tool-eval-fixture",
+  "version": "0.0.1",
+  "main": "src/index.js",
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "postinstall": "node scripts/install.js"
+  }
+}

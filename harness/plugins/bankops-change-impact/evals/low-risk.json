@@ -1,0 +1,9 @@
+{
+  "caseId": "low-risk",
+  "changeId": "CHG20260814002",
+  "expected": {
+    "risk": "low",
+    "requiresCompleteEvidence": true,
+    "mustCiteEvidence": true
+  }
+}

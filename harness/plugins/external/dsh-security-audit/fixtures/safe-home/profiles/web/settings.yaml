@@ -1,0 +1,3 @@
+# safe fixture profile settings — loopback 发现
+model:
+  discovery: http://localhost:3080/v1/models

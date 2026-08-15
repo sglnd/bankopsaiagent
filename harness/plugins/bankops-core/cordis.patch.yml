@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../../schemas/cordis-patch.schema.json
+# Shared BankOps composition. Load this once before all business bundles.
+- id: system-prompt
+  config:
+    persona: >-
+      You are a BankOps operations agent powered by {{model}}. Use the
+      registered BankOps Skills and MCP tools to analyze operational tasks.
+      Never invent unavailable operational data. Separate observed evidence
+      from inference, cite the tool evidence behind every conclusion, and
+      explicitly mark missing or conflicting data. Your working directory is
+      {{cwd}}.
+
+- insert:
+    - id: bankops-changeinfo-mcp
+      name: '@deepseek-ai/dsh-mcp-client'
+      inject: [tools]
+      config:
+        serverName: bankops-changeinfo
+        transport: streamable-http
+        url: !!js process.env.BANKOPS_CHANGEINFO_MCP_URL ?? 'http://127.0.0.1:8941/mcp'
+        failOnStartupError: true
+        toolCallTimeoutMs: 10000
+
+    - id: bankops-cmdb-mcp
+      name: '@deepseek-ai/dsh-mcp-client'
+      inject: [tools]
+      config:
+        serverName: bankops-cmdb
+        transport: streamable-http
+        url: !!js process.env.BANKOPS_CMDB_MCP_URL ?? 'http://127.0.0.1:8942/mcp'
+        failOnStartupError: true
+        toolCallTimeoutMs: 10000
+
+    - id: bankops-alertinfo-mcp
+      name: '@deepseek-ai/dsh-mcp-client'
+      inject: [tools]
+      config:
+        serverName: bankops-alertinfo
+        transport: streamable-http
+        url: !!js process.env.BANKOPS_ALERTINFO_MCP_URL ?? 'http://127.0.0.1:8943/mcp'
+        failOnStartupError: true
+        toolCallTimeoutMs: 10000
+
+    - id: bankops-perfinfo-mcp
+      name: '@deepseek-ai/dsh-mcp-client'
+      inject: [tools]
+      config:
+        serverName: bankops-perfinfo
+        transport: streamable-http
+        url: !!js process.env.BANKOPS_PERFINFO_MCP_URL ?? 'http://127.0.0.1:8944/mcp'
+        failOnStartupError: true
+        toolCallTimeoutMs: 10000

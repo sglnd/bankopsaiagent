@@ -1,0 +1,9 @@
+{
+  "caseId": "insufficient-data",
+  "changeId": "CHG20260814003",
+  "expected": {
+    "risk": "undetermined",
+    "mustReportMissingData": true,
+    "mustNotFabricate": true
+  }
+}

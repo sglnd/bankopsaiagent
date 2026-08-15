@@ -1,0 +1,3 @@
+# yaml-language-server: $schema=../../schemas/cordis-patch.schema.json
+# Machine-local overrides belong here. Keep secrets out of this file.
+[]
