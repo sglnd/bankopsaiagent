@@ -1,0 +1,202 @@
+name: bankops-harness
+
+services:
+  identity-service:
+    build:
+      context: ../../services/identity-service
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:24-bookworm-slim}
+    image: bankops/identity-service:0.1.0
+    container_name: bankops-identity-service
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-bankops}:${POSTGRES_PASSWORD:-bankops-local-change-me}@postgres:5432/${POSTGRES_DB:-bankops}
+      BANKOPS_TENANT_ID: ${BANKOPS_TENANT_ID:-tenant-local}
+      BANKOPS_TENANT_NAME: ${BANKOPS_TENANT_NAME:-信息科技部}
+      BANKOPS_IDENTITY_INTERNAL_TOKEN: ${BANKOPS_IDENTITY_INTERNAL_TOKEN:-bankops-local-internal-token-change-me}
+      BANKOPS_BOOTSTRAP_ADMIN_USERNAME: ${BANKOPS_BOOTSTRAP_ADMIN_USERNAME:-admin}
+      BANKOPS_BOOTSTRAP_ADMIN_PASSWORD: ${BANKOPS_BOOTSTRAP_ADMIN_PASSWORD:-BankOps@Local2026!}
+      BANKOPS_BOOTSTRAP_ADMIN_DISPLAY_NAME: ${BANKOPS_BOOTSTRAP_ADMIN_DISPLAY_NAME:-平台管理员}
+      BANKOPS_SESSION_HOURS: ${BANKOPS_SESSION_HOURS:-8}
+      BANKOPS_COOKIE_SECURE: ${BANKOPS_COOKIE_SECURE:-0}
+      BANKOPS_REGISTRATION_ENABLED: ${BANKOPS_REGISTRATION_ENABLED:-1}
+      PORT: 8960
+    ports:
+      - "127.0.0.1:${BANKOPS_IDENTITY_PORT:-8960}:8960"
+    networks:
+      - bankops-network
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8960/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 20s
+
+  harness:
+    build:
+      context: ../..
+      dockerfile: runtimes/deepseek-harness/Dockerfile
+      args:
+        DSH_VERSION: 0.1.0-rc.6
+    image: bankops/deepseek-harness:0.1.0-rc.6
+    container_name: bankops-deepseek-harness
+    restart: unless-stopped
+    init: true
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DSH_HOME: /data/dsh
+      BANKOPS_USER_SKILL_ROOT: /data/dsh/bankops-skills
+      BANKOPS_WEB_PROXY: "1"
+      BANKOPS_CHANGEINFO_MCP_URL: ${BANKOPS_CHANGEINFO_MCP_URL:-http://bankops-changeinfo-mcp:8941/mcp}
+      BANKOPS_CMDB_MCP_URL: ${BANKOPS_CMDB_MCP_URL:-http://bankops-cmdb-mcp:8942/mcp}
+      BANKOPS_ALERTINFO_MCP_URL: ${BANKOPS_ALERTINFO_MCP_URL:-http://bankops-alertinfo-mcp:8943/mcp}
+      BANKOPS_PERFINFO_MCP_URL: ${BANKOPS_PERFINFO_MCP_URL:-http://bankops-perfinfo-mcp:8944/mcp}
+      BANKOPS_KNOWLEDGE_MCP_URL: ${BANKOPS_KNOWLEDGE_MCP_URL:-http://bankops-knowledge-mcp:8952/mcp}
+      BANKOPS_MEMORY_MCP_URL: ${BANKOPS_MEMORY_MCP_URL:-http://bankops-memory-mcp:8953/mcp}
+    ports:
+      - "127.0.0.1:${HARNESS_PORT:-3080}:3080"
+    volumes:
+      - bankops-dsh-data:/data/dsh
+      - ../../infrastructure/local/workspace:/workspace
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - bankops-network
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3080').then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  agent-api:
+    build:
+      context: ../..
+      dockerfile: runtimes/deepseek-harness/Dockerfile
+      args:
+        DSH_VERSION: 0.1.0-rc.6
+    image: bankops/deepseek-harness:0.1.0-rc.6
+    container_name: bankops-agent-api
+    restart: unless-stopped
+    init: true
+    depends_on:
+      harness:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DSH_HOME: /data/dsh
+      BANKOPS_USER_SKILL_ROOT: /data/dsh/bankops-skills
+      BANKOPS_AGENT_SKILL_DIR: /data/dsh/bankops-skills
+      BANKOPS_AGENT_API_HOST: 0.0.0.0
+      BANKOPS_AGENT_API_PORT: 8090
+      BANKOPS_AGENT_TASK_DIR: /data/agent-api/tasks
+      BANKOPS_AGENT_WORKSPACE: /workspace
+      BANKOPS_AGENT_RUNNER_MODE: ${BANKOPS_AGENT_RUNNER_MODE:-mock}
+      BANKOPS_AGENT_API_TOKEN: ${BANKOPS_AGENT_API_TOKEN:-}
+      BANKOPS_IDENTITY_SIGNING_SECRET: ${BANKOPS_IDENTITY_SIGNING_SECRET:-bankops-local-identity-signing-secret-change-me}
+      BANKOPS_AGENT_API_ALLOW_UNAUTHENTICATED: ${BANKOPS_AGENT_API_ALLOW_UNAUTHENTICATED:-1}
+      BANKOPS_AGENT_MAX_CONCURRENCY: ${BANKOPS_AGENT_MAX_CONCURRENCY:-1}
+      BANKOPS_AGENT_TIMEOUT_MS: ${BANKOPS_AGENT_TIMEOUT_MS:-300000}
+      BANKOPS_PORTAL_URL: http://127.0.0.1:${BANKOPS_PORTAL_PORT:-8080}/skill-studio
+      BANKOPS_CHANGEINFO_MCP_URL: ${BANKOPS_CHANGEINFO_MCP_URL:-http://bankops-changeinfo-mcp:8941/mcp}
+      BANKOPS_CMDB_MCP_URL: ${BANKOPS_CMDB_MCP_URL:-http://bankops-cmdb-mcp:8942/mcp}
+      BANKOPS_ALERTINFO_MCP_URL: ${BANKOPS_ALERTINFO_MCP_URL:-http://bankops-alertinfo-mcp:8943/mcp}
+      BANKOPS_PERFINFO_MCP_URL: ${BANKOPS_PERFINFO_MCP_URL:-http://bankops-perfinfo-mcp:8944/mcp}
+      BANKOPS_KNOWLEDGE_MCP_URL: ${BANKOPS_KNOWLEDGE_MCP_URL:-http://bankops-knowledge-mcp:8952/mcp}
+      BANKOPS_MEMORY_MCP_URL: ${BANKOPS_MEMORY_MCP_URL:-http://bankops-memory-mcp:8953/mcp}
+    command: ["node", "/opt/bankops/services/agent-control-api/server.mjs"]
+    ports:
+      - "127.0.0.1:${BANKOPS_AGENT_API_PORT:-8090}:8090"
+    volumes:
+      - bankops-dsh-data:/data/dsh
+      - bankops-agent-api-data:/data/agent-api
+      - ../../infrastructure/local/workspace:/workspace
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - bankops-network
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:8090/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  portal:
+    build:
+      context: ../..
+      dockerfile: apps/bankops-portal/Dockerfile
+    image: bankops/portal:0.1.0
+    container_name: bankops-portal
+    restart: unless-stopped
+    init: true
+    depends_on:
+      agent-api:
+        condition: service_healthy
+      identity-service:
+        condition: service_healthy
+    environment:
+      BANKOPS_AGENT_API_URL: http://agent-api:8090
+      BANKOPS_FILE_SERVICE_URL: http://bankops-file-service:8951
+      BANKOPS_KNOWLEDGE_API_URL: http://bankops-knowledge-mcp:9052
+      BANKOPS_IDENTITY_API_URL: http://identity-service:8960
+      BANKOPS_IDENTITY_INTERNAL_TOKEN: ${BANKOPS_IDENTITY_INTERNAL_TOKEN:-bankops-local-internal-token-change-me}
+      BANKOPS_IDENTITY_SIGNING_SECRET: ${BANKOPS_IDENTITY_SIGNING_SECRET:-bankops-local-identity-signing-secret-change-me}
+      BANKOPS_AGENT_API_TOKEN: ${BANKOPS_AGENT_API_TOKEN:-}
+      BANKOPS_TENANT_ID: ${BANKOPS_TENANT_ID:-tenant-local}
+      BANKOPS_DSH_URL: http://127.0.0.1:${HARNESS_PORT:-3080}
+      BANKOPS_PORTAL_HOST: 0.0.0.0
+      BANKOPS_PORTAL_PORT: 8080
+    ports:
+      - "127.0.0.1:${BANKOPS_PORTAL_PORT:-8080}:8080"
+    networks:
+      - bankops-network
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+volumes:
+  bankops-dsh-data:
+    name: bankops-dsh-data
+  bankops-agent-api-data:
+    name: bankops-agent-api-data
+
+networks:
+  bankops-network:
+    external: true
+    name: bankops-network

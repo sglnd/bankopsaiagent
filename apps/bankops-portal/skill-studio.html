@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>BankOps Skill Studio</title>
+  <style>
+    :root { color-scheme: light; --bg:#f4f7fb; --panel:#fff; --line:#dce4ef; --ink:#172033; --muted:#667085; --brand:#155eef; --good:#067647; --bad:#b42318; }
+    * { box-sizing:border-box } body { margin:0; font:14px/1.5 system-ui,-apple-system,"PingFang SC",sans-serif; color:var(--ink); background:var(--bg) }
+    header { height:64px; padding:0 24px; display:flex; align-items:center; justify-content:space-between; color:#fff; background:#101828 }
+    header h1 { margin:0; font-size:18px } header span { color:#98a2b3 }
+    button,input,textarea { font:inherit } button { border:1px solid var(--line); border-radius:7px; padding:8px 12px; background:#fff; cursor:pointer }
+    button.primary { color:#fff; border-color:var(--brand); background:var(--brand) } button:disabled { opacity:.5; cursor:not-allowed }
+    .toolbar { display:flex; gap:8px; align-items:center } .toolbar input { width:230px; color:#fff; background:#1d2939; border:1px solid #475467; border-radius:7px; padding:8px }
+    main { display:grid; grid-template-columns:280px minmax(420px,1fr) 330px; gap:16px; padding:16px; height:calc(100vh - 64px) }
+    section { min-height:0; border:1px solid var(--line); border-radius:10px; background:var(--panel); overflow:auto }
+    .section-head { position:sticky; top:0; z-index:1; padding:14px 16px; border-bottom:1px solid var(--line); background:#fff; display:flex; align-items:center; justify-content:space-between }
+    .section-head h2 { margin:0; font-size:15px } .content { padding:14px 16px }
+    .skill { display:block; width:100%; margin-bottom:8px; text-align:left } .skill.active { border-color:var(--brand); color:var(--brand); background:#eff4ff }
+    label.field { display:block; margin-bottom:12px; color:var(--muted) } label.field input,label.field textarea { display:block; width:100%; margin-top:5px; border:1px solid var(--line); border-radius:7px; padding:9px; color:var(--ink); background:#fff }
+    #skillMd { min-height:390px; resize:vertical; font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace }
+    #references { min-height:110px; resize:vertical; font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace }
+    .actions { display:flex; gap:8px; margin:12px 0 } .meta { margin-bottom:12px; color:var(--muted) }
+    details { margin-bottom:10px; border:1px solid var(--line); border-radius:8px; overflow:hidden } summary { padding:9px 10px; font-weight:600; cursor:pointer; background:#f9fafb }
+    .tool { padding:9px 10px; border-top:1px solid var(--line) } .tool label { display:flex; gap:8px; align-items:flex-start; font-weight:600 } .tool p { margin:4px 0 0 24px; color:var(--muted) }
+    .schema { margin:7px 0 0 24px; white-space:pre-wrap; word-break:break-word; color:#344054; font:11px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace }
+    #result { min-height:130px; white-space:pre-wrap; word-break:break-word; border-radius:8px; padding:10px; background:#101828; color:#d0d5dd; font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace }
+    .ok { color:var(--good) } .error { color:var(--bad) } .hint { color:var(--muted); font-size:12px }
+    @media (max-width:1100px) { main { grid-template-columns:230px 1fr } .catalog { grid-column:1/-1; height:420px } }
+  </style>
+</head>
+<body>
+  <header><div><h1>BankOps Skill Studio</h1><span>MCP 发现 · Skill 编辑 · 校验 · 版本发布</span></div><div class="toolbar"><a href="/" style="color:#d0d5dd;text-decoration:none">返回 Portal</a><button type="button" onclick="BankOpsAuth.logout()">退出</button><button id="refresh">刷新</button></div></header>
+  <main>
+    <section>
+      <div class="section-head"><h2>用户 Skills</h2><button id="newSkill">新建</button></div>
+      <div class="content"><div id="skillList"></div><p class="hint">内置业务 Skill 受保护；这里管理用户版本。</p></div>
+    </section>
+    <section>
+      <div class="section-head"><h2>编辑器</h2><span id="revision" class="hint">未保存</span></div>
+      <div class="content">
+        <label class="field">Skill 名称<input id="name" placeholder="inspect-my-service"></label>
+        <label class="field">显示名称<input id="displayName" placeholder="应用巡检"></label>
+        <label class="field">短说明（25–64 字符）<input id="shortDescription"></label>
+        <label class="field">默认提示词（必须包含 $skill-name）<input id="defaultPrompt"></label>
+        <label class="field">SKILL.md<textarea id="skillMd" spellcheck="false"></textarea></label>
+        <label class="field">references（JSON：文件名到 Markdown 内容）<textarea id="references" spellcheck="false">{}</textarea></label>
+        <div class="actions"><button id="save" class="primary">保存草稿</button><button id="validate">校验</button><button id="publish">发布</button></div>
+        <div id="result">等待操作。</div>
+      </div>
+    </section>
+    <section class="catalog">
+      <div class="section-head"><h2>MCP 工具目录</h2><span id="catalogSummary" class="hint"></span></div>
+      <div id="catalog" class="content"></div>
+    </section>
+  </main>
+  <script src="/auth-client.js"></script><script>
+    const state = { skills:[], catalog:null, current:null, selected:new Set() }
+    const $ = id => document.getElementById(id)
+    const api = (path,options={}) => BankOpsAuth.api(path,{...options,headers:{...(options.body?{'content-type':'application/json'}:{}),...(options.headers||{})}})
+    function show(value, ok=true) { $('result').textContent = typeof value === 'string' ? value : JSON.stringify(value,null,2); $('result').className = ok ? 'ok' : 'error' }
+    function slug(value) { return value.toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,64) }
+    function blank() {
+      state.current=null; state.selected.clear(); $('name').disabled=false; $('name').value=''; $('displayName').value=''; $('shortDescription').value=''; $('defaultPrompt').value='';
+      $('skillMd').value='---\nname: inspect-my-service\ndescription: 描述这个 Skill 做什么，以及用户在什么场景下使用。\n---\n\n# 工作流程\n\n1. 从已选择的 MCP 工具获取真实数据。\n2. 不得虚构工具、参数或结果。\n3. 输出有证据的结论。\n\n需要工具参数时读取 [MCP 工具参考](references/mcp-tools.generated.md)。\n';
+      $('references').value='{}'; $('revision').textContent='未保存'; renderCatalog(); renderSkills(); show('填写内容并从右侧选择 MCP 工具。')
+    }
+    function renderSkills() {
+      $('skillList').replaceChildren(...state.skills.map(skill => { const button=document.createElement('button'); button.className=`skill ${state.current?.name===skill.name?'active':''}`; button.textContent=`${skill.name} · r${skill.currentRevision}${skill.publishedRevision?` · 已发布 r${skill.publishedRevision}`:''}`; button.onclick=()=>loadSkill(skill.name); return button }))
+    }
+    function renderCatalog() {
+      const root=$('catalog'); root.replaceChildren(); if(!state.catalog) return
+      $('catalogSummary').textContent=`${state.catalog.summary.availableServerCount}/${state.catalog.summary.serverCount} 服务 · ${state.catalog.summary.toolCount} 工具`
+      for(const server of state.catalog.servers){ const details=document.createElement('details'); details.open=true; const summary=document.createElement('summary'); summary.textContent=`${server.displayName} · ${server.status}`; details.append(summary)
+        if(server.error){ const p=document.createElement('p'); p.className='error'; p.textContent=server.error; details.append(p) }
+        for(const tool of server.tools){ const key=`${server.id}:${tool.name}`, box=document.createElement('div'); box.className='tool'; const label=document.createElement('label'), input=document.createElement('input'); input.type='checkbox'; input.checked=state.selected.has(key); input.onchange=()=>input.checked?state.selected.add(key):state.selected.delete(key); label.append(input,document.createTextNode(`${server.id}.${tool.name}`)); const p=document.createElement('p'); p.textContent=tool.description; const pre=document.createElement('pre'); pre.className='schema'; pre.textContent=JSON.stringify(tool.inputSchema,null,2); box.append(label,p,pre); details.append(box) }
+        root.append(details) }
+    }
+    async function refresh() { try { const [catalog,skills]=await Promise.all([api('/api/v1/mcp-catalog'),api('/api/v1/skills')]); state.catalog=catalog; state.skills=skills.skills; renderCatalog(); renderSkills(); show('工具目录和 Skill 列表已刷新。') } catch(error){show(error.message,false)} }
+    async function loadSkill(name) { try { const skill=await api(`/api/v1/skills/${name}`); state.current=skill; state.selected=new Set(skill.selectedTools.map(x=>`${x.server}:${x.tool}`)); $('name').value=skill.name; $('name').disabled=true; $('displayName').value=skill.interface.displayName; $('shortDescription').value=skill.interface.shortDescription; $('defaultPrompt').value=skill.interface.defaultPrompt; $('skillMd').value=skill.skillMd; const refs={...skill.references}; delete refs['mcp-tools.generated.md']; $('references').value=JSON.stringify(refs,null,2); $('revision').textContent=`草稿 r${skill.revision} · 发布 r${skill.publishedRevision??'-'}`; renderCatalog(); renderSkills(); show(`已加载 ${name} revision ${skill.revision}`) } catch(error){show(error.message,false)} }
+    function payload() { const name=slug($('name').value); const selectedTools=[...state.selected].map(value=>{const [server,...rest]=value.split(':');return {server,tool:rest.join(':')}}); return {name,skillMd:$('skillMd').value,references:JSON.parse($('references').value||'{}'),selectedTools,interface:{displayName:$('displayName').value,shortDescription:$('shortDescription').value,defaultPrompt:$('defaultPrompt').value},...(state.current?{expectedRevision:state.current.revision}:{})} }
+    async function save() { try { const body=payload(), created=!state.current; const skill=await api(created?'/api/v1/skills':`/api/v1/skills/${state.current.name}`,{method:created?'POST':'PUT',body:JSON.stringify(body)}); state.current=skill; $('name').disabled=true; await refresh(); await loadSkill(skill.name) } catch(error){show(error.message,false)} }
+    async function action(name) { if(!state.current) return show('请先保存草稿。',false); try { const skillName=state.current.name; const result=await api(`/api/v1/skills/${skillName}/${name}`,{method:'POST',body:'{}'}); await refresh(); await loadSkill(skillName); show(result,result.valid!==false) } catch(error){show(error.message,false)} }
+    $('newSkill').onclick=blank; $('refresh').onclick=refresh; $('save').onclick=save; $('validate').onclick=()=>action('validate'); $('publish').onclick=()=>action('publish'); $('name').oninput=()=>{if(!state.current){const name=slug($('name').value);$('defaultPrompt').value=`Use $${name||'skill-name'} for this task.`}}; blank(); refresh()
+  </script>
+</body>
+</html>

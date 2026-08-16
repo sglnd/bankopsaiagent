@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../schemas/cordis-patch.schema.json
+- id: system-prompt
+  config:
+    persona: >-
+      You are a BankOps operations agent powered by {{model}}. Use registered
+      BankOps Skills and MCP tools for operational tasks. Never invent
+      unavailable operational data. Separate observed evidence from inference
+      and cite tool evidence. Search bankops-knowledge when internal procedures,
+      standards, runbooks, or historical documentation may answer the request.
+      When the user provides a ctx_ knowledge context identifier, call
+      bankops-knowledge search_session_knowledge and restrict retrieval to that
+      attachment context.
+      Recall bankops-memory when user-specific preferences, responsibilities,
+      decisions, or constraints may matter. Save or forget long-term memory only
+      when the user explicitly asks or clearly confirms it; never store secrets,
+      credentials, raw evidence, or temporary task state. Your working directory
+      is {{cwd}}.
+
+- insert:
+    - id: bankops-knowledge-mcp
+      name: '@deepseek-ai/dsh-mcp-client'
+      inject: [tools]
+      config:
+        serverName: bankops-knowledge
+        transport: streamable-http
+        url: !!js process.env.BANKOPS_KNOWLEDGE_MCP_URL ?? 'http://127.0.0.1:8952/mcp'
+        failOnStartupError: true
+        toolCallTimeoutMs: 15000
+
+    - id: bankops-memory-mcp
+      name: '@deepseek-ai/dsh-mcp-client'
+      inject: [tools]
+      config:
+        serverName: bankops-memory
+        transport: streamable-http
+        url: !!js process.env.BANKOPS_MEMORY_MCP_URL ?? 'http://127.0.0.1:8953/mcp'
+        failOnStartupError: true
+        toolCallTimeoutMs: 10000

@@ -1,0 +1,83 @@
+services:
+  playwright-mcp:
+    image: bankops/playwright-mcp:local
+    container_name: bankops-playwright-mcp
+    restart: unless-stopped
+    ports:
+      - "${PLAYWRIGHT_PORT:-8931}:8931"
+    command: ["--host", "0.0.0.0", "--port", "8931", "--headless", "--browser", "chromium"]
+    volumes:
+      - ${BANKOPS_WORKSPACE_PATH:-./workspace}:/workspace
+      - ${BANKOPS_LOG_PATH:-./logs}:/var/log/bankops
+      - ${BANKOPS_CONFIG_PATH:-./config}:/config:ro
+    networks:
+      - bankops-network
+    security_opt:
+      - no-new-privileges:true
+    shm_size: 1gb
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8931/mcp').then(r => process.exit(r.status < 500 ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+  filesystem-mcp:
+    image: bankops/filesystem-mcp:local
+    container_name: bankops-filesystem-mcp
+    restart: unless-stopped
+    ports:
+      - "${FILESYSTEM_PORT:-8932}:8932"
+    command: ["mcp-proxy", "--port", "8932", "--", "mcp-server-filesystem", "/workspace"]
+    volumes:
+      - ${BANKOPS_WORKSPACE_PATH:-./workspace}:/workspace
+      - ${BANKOPS_LOG_PATH:-./logs}:/var/log/bankops
+      - ${BANKOPS_CONFIG_PATH:-./config}:/config:ro
+    networks:
+      - bankops-network
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8932/mcp').then(r => process.exit(r.status < 500 ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+  git-mcp:
+    image: bankops/git-mcp:local
+    container_name: bankops-git-mcp
+    restart: unless-stopped
+    ports:
+      - "${GIT_PORT:-8933}:8933"
+    command:
+      - sh
+      - -ec
+      - |
+        git config --global --add safe.directory /workspace
+        if ! git -C /workspace rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+          git -C /workspace init -q
+          git -C /workspace symbolic-ref HEAD refs/heads/main
+          git -C /workspace config user.name 'BankOps MCP'
+          git -C /workspace config user.email 'bankops-mcp@localhost'
+          git -C /workspace commit --allow-empty -m 'chore: initialize MCP workspace'
+        fi
+        exec mcp-proxy --port 8933 -- python3 -m mcp_server_git --repository /workspace
+    volumes:
+      - ${BANKOPS_WORKSPACE_PATH:-./workspace}:/workspace
+      - ${BANKOPS_LOG_PATH:-./logs}:/var/log/bankops
+      - ${BANKOPS_CONFIG_PATH:-./config}:/config:ro
+    networks:
+      - bankops-network
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8933/mcp').then(r => process.exit(r.status < 500 ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+networks:
+  bankops-network:
+    driver: bridge

@@ -1,0 +1,12 @@
+.git
+.DS_Store
+**/.DS_Store
+**/.env
+**/.dsh-home
+**/node_modules
+**/*.tgz
+infrastructure/local/exports
+infrastructure/local/logs
+infrastructure/local/outputs
+infrastructure/local/work
+infrastructure/local/workspace

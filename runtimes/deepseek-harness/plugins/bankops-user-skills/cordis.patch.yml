@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=../../schemas/cordis-patch.schema.json
+- insert:
+    - id: bankops-user-skills-loader
+      name: '@bankops/dsh-user-skills'
+      inject: [skills]
+

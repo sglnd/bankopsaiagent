@@ -1,0 +1,403 @@
+x-common: &common
+  restart: unless-stopped
+  networks:
+    - bankops-network
+  volumes:
+    - ./workspace:/workspace
+    - ./logs:/var/log/bankops
+    - ./config:/config:ro
+
+services:
+  postgres:
+    image: postgres:${POSTGRES_VERSION:-17-bookworm}
+    container_name: bankops-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-bankops}
+      POSTGRES_USER: ${POSTGRES_USER:-bankops}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bankops-local-change-me}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - bankops-postgres-data:/var/lib/postgresql/data
+      - ../postgres/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - bankops-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  minio:
+    image: ${MINIO_IMAGE:-minio/minio:RELEASE.2025-07-23T15-54-02Z}
+    container_name: bankops-minio
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-bankops-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-bankops-minio-local-change-me}
+    ports:
+      - "127.0.0.1:${MINIO_API_PORT:-9000}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - bankops-minio-data:/data
+    networks:
+      - bankops-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  minio-init:
+    image: ${MINIO_MC_IMAGE:-minio/mc:RELEASE.2025-07-21T05-28-08Z}
+    container_name: bankops-minio-init
+    restart: "no"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-bankops-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-bankops-minio-local-change-me}
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        mc alias set bankops http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"
+        mc mb --ignore-existing bankops/bankops-files
+        mc mb --ignore-existing bankops/bankops-reports
+        mc anonymous set none bankops/bankops-files
+        mc anonymous set none bankops/bankops-reports
+    networks:
+      - bankops-network
+    depends_on:
+      minio:
+        condition: service_healthy
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTICSEARCH_VERSION:-8.17.10}
+    container_name: bankops-elasticsearch
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      xpack.ml.enabled: "false"
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    ports:
+      - "127.0.0.1:${ELASTICSEARCH_PORT:-9200}:9200"
+    volumes:
+      - bankops-es-data:/usr/share/elasticsearch/data
+    networks:
+      - bankops-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9200/_cluster/health?wait_for_status=yellow >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
+
+  elasticsearch-seed:
+    image: bankops/domain-mcp:local
+    container_name: bankops-elasticsearch-seed
+    restart: "no"
+    environment:
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+    volumes:
+      - ../elasticsearch:/seed:ro
+    entrypoint: ["node"]
+    command: ["/seed/seed.js"]
+    networks:
+      - bankops-network
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+  changeinfo-mcp:
+    build:
+      context: ../../mcp/bankops-domain
+      args:
+        NODE_IMAGE: ${NODE_IMAGE}
+    image: bankops/domain-mcp:local
+    container_name: bankops-changeinfo-mcp
+    restart: unless-stopped
+    environment:
+      BANKOPS_DOMAIN: changeinfo
+      PORT: 8941
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+    ports:
+      - "127.0.0.1:${CHANGEINFO_PORT:-8941}:8941"
+    networks:
+      - bankops-network
+    depends_on:
+      elasticsearch-seed:
+        condition: service_completed_successfully
+    healthcheck: &domain-healthcheck
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:' + process.env.PORT + '/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  cmdb-mcp:
+    image: bankops/domain-mcp:local
+    container_name: bankops-cmdb-mcp
+    restart: unless-stopped
+    environment:
+      BANKOPS_DOMAIN: cmdb
+      PORT: 8942
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+    ports:
+      - "127.0.0.1:${CMDB_PORT:-8942}:8942"
+    networks:
+      - bankops-network
+    depends_on:
+      elasticsearch-seed:
+        condition: service_completed_successfully
+    healthcheck: *domain-healthcheck
+
+  alertinfo-mcp:
+    image: bankops/domain-mcp:local
+    container_name: bankops-alertinfo-mcp
+    restart: unless-stopped
+    environment:
+      BANKOPS_DOMAIN: alertinfo
+      PORT: 8943
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+    ports:
+      - "127.0.0.1:${ALERTINFO_PORT:-8943}:8943"
+    networks:
+      - bankops-network
+    depends_on:
+      elasticsearch-seed:
+        condition: service_completed_successfully
+    healthcheck: *domain-healthcheck
+
+  perfinfo-mcp:
+    image: bankops/domain-mcp:local
+    container_name: bankops-perfinfo-mcp
+    restart: unless-stopped
+    environment:
+      BANKOPS_DOMAIN: perfinfo
+      PORT: 8944
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+    ports:
+      - "127.0.0.1:${PERFINFO_PORT:-8944}:8944"
+    networks:
+      - bankops-network
+    depends_on:
+      elasticsearch-seed:
+        condition: service_completed_successfully
+    healthcheck: *domain-healthcheck
+
+  knowledge-mcp:
+    build:
+      context: ../../services/knowledge-platform
+      args:
+        NODE_IMAGE: ${NODE_IMAGE}
+    image: bankops/knowledge-platform:local
+    container_name: bankops-knowledge-mcp
+    restart: unless-stopped
+    command: ["node", "src/knowledge-server.mjs"]
+    environment: &knowledge-platform-env
+      DATABASE_URL: postgresql://${POSTGRES_USER:-bankops}:${POSTGRES_PASSWORD:-bankops-local-change-me}@postgres:5432/${POSTGRES_DB:-bankops}
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-bankops-minio}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-bankops-minio-local-change-me}
+      BANKOPS_FILE_BUCKET: bankops-files
+      BANKOPS_TENANT_ID: ${BANKOPS_TENANT_ID:-tenant-local}
+      BANKOPS_USER_ID: ${BANKOPS_USER_ID:-user-local}
+      BANKOPS_DEPARTMENT_ID: ${BANKOPS_DEPARTMENT_ID:-dept-operations}
+      BANKOPS_ROLES: ${BANKOPS_ROLES:-OPERATIONS}
+      BANKOPS_WORKSPACE_ID: ${BANKOPS_WORKSPACE_ID:-bankops-default}
+      BANKOPS_MAX_DOCUMENT_PAGES: ${BANKOPS_MAX_DOCUMENT_PAGES:-500}
+      BANKOPS_MAX_EXTRACTED_CHARS: ${BANKOPS_MAX_EXTRACTED_CHARS:-5000000}
+      BANKOPS_WORKER_MAX_ATTEMPTS: ${BANKOPS_WORKER_MAX_ATTEMPTS:-5}
+      BANKOPS_IDENTITY_SIGNING_SECRET: ${BANKOPS_IDENTITY_SIGNING_SECRET:-bankops-local-identity-signing-secret-change-me}
+      BANKOPS_IDENTITY_REQUIRED_FOR_REST: ${BANKOPS_IDENTITY_REQUIRED_FOR_REST:-0}
+      PORT: 8952
+    ports:
+      - "127.0.0.1:${KNOWLEDGE_MCP_PORT:-8952}:8952"
+      - "127.0.0.1:${KNOWLEDGE_REST_PORT:-9052}:9052"
+    networks:
+      - bankops-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      elasticsearch-seed:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8952/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  memory-mcp:
+    build:
+      context: ../../services/knowledge-platform
+      args:
+        NODE_IMAGE: ${NODE_IMAGE}
+    image: bankops/knowledge-platform:local
+    container_name: bankops-memory-mcp
+    restart: unless-stopped
+    command: ["node", "src/memory-server.mjs"]
+    environment:
+      <<: *knowledge-platform-env
+      PORT: 8953
+    ports:
+      - "127.0.0.1:${MEMORY_MCP_PORT:-8953}:8953"
+    networks:
+      - bankops-network
+    depends_on:
+      elasticsearch-seed:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8953/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  file-service:
+    build:
+      context: ../../services/knowledge-platform
+      args:
+        NODE_IMAGE: ${NODE_IMAGE}
+    image: bankops/knowledge-platform:local
+    container_name: bankops-file-service
+    restart: unless-stopped
+    command: ["node", "src/file-server.mjs"]
+    environment:
+      <<: *knowledge-platform-env
+      PORT: 8951
+      BANKOPS_MAX_UPLOAD_BYTES: ${BANKOPS_MAX_UPLOAD_BYTES:-20971520}
+    ports:
+      - "127.0.0.1:${FILE_SERVICE_PORT:-8951}:8951"
+    networks:
+      - bankops-network
+    depends_on:
+      knowledge-mcp:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8951/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  knowledge-worker:
+    build:
+      context: ../../services/knowledge-platform
+      args:
+        NODE_IMAGE: ${NODE_IMAGE}
+    image: bankops/knowledge-platform:local
+    restart: unless-stopped
+    command: ["node", "src/worker.mjs"]
+    environment:
+      <<: *knowledge-platform-env
+      BANKOPS_WORKER_POLL_MS: ${BANKOPS_WORKER_POLL_MS:-1000}
+      BANKOPS_WORKER_STALE_MS: ${BANKOPS_WORKER_STALE_MS:-600000}
+    networks:
+      - bankops-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      elasticsearch-seed:
+        condition: service_completed_successfully
+    deploy:
+      replicas: ${KNOWLEDGE_WORKER_REPLICAS:-1}
+    healthcheck:
+      disable: true
+
+  playwright-mcp:
+    <<: *common
+    build:
+      context: ../../mcp/playwright
+      args:
+        PLAYWRIGHT_IMAGE: ${PLAYWRIGHT_IMAGE}
+    image: bankops/playwright-mcp:local
+    container_name: bankops-playwright-mcp
+    ports:
+      - "${PLAYWRIGHT_PORT}:8931"
+    command: ["--host", "0.0.0.0", "--port", "8931", "--headless", "--browser", "chromium"]
+    security_opt:
+      - no-new-privileges:true
+    shm_size: 1gb
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8931/mcp').then(r => process.exit(r.status < 500 ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+  filesystem-mcp:
+    <<: *common
+    build:
+      context: ../../mcp/filesystem
+      args:
+        NODE_IMAGE: ${NODE_IMAGE}
+        MCP_PROXY_VERSION: ${MCP_PROXY_VERSION}
+    image: bankops/filesystem-mcp:local
+    container_name: bankops-filesystem-mcp
+    ports:
+      - "${FILESYSTEM_PORT}:8932"
+    command: ["mcp-proxy", "--port", "8932", "--", "mcp-server-filesystem", "/workspace"]
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8932/mcp').then(r => process.exit(r.status < 500 ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+  git-mcp:
+    <<: *common
+    build:
+      context: ../../mcp/git
+      args:
+        NODE_IMAGE: ${NODE_IMAGE}
+        MCP_PROXY_VERSION: ${MCP_PROXY_VERSION}
+    image: bankops/git-mcp:local
+    container_name: bankops-git-mcp
+    ports:
+      - "${GIT_PORT}:8933"
+    command:
+      - sh
+      - -ec
+      - |
+        git config --global --add safe.directory /workspace
+        if ! git -C /workspace rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+          git -C /workspace init -q
+          git -C /workspace symbolic-ref HEAD refs/heads/main
+          git -C /workspace config user.name 'BankOps MCP'
+          git -C /workspace config user.email 'bankops-mcp@localhost'
+          git -C /workspace commit --allow-empty -m 'chore: initialize MCP workspace'
+        fi
+        exec mcp-proxy --port 8933 -- python3 -m mcp_server_git --repository /workspace
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8933/mcp').then(r => process.exit(r.status < 500 ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+networks:
+  bankops-network:
+    name: bankops-network
+    driver: bridge
+
+volumes:
+  bankops-es-data:
+    name: bankops-es-data
+  bankops-postgres-data:
+    name: bankops-postgres-data
+  bankops-minio-data:
+    name: bankops-minio-data

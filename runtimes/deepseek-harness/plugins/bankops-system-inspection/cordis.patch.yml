@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=../../schemas/cordis-patch.schema.json
+- insert:
+    - id: bankops-system-inspection-skill
+      name: '@bankops/dsh-system-inspection'
+      inject: [skills]
+
