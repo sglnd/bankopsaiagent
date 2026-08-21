@@ -4,6 +4,7 @@ The repository is split by deployable responsibility:
 
 - `apps/bankops-portal/`: browser UI; calls Agent Control API only.
 - `services/agent-control-api/`: stable business and control-plane API.
+- `services/runtime-manager/`: per-user DSH runtime lifecycle and persistent-volume ownership.
 - `runtimes/deepseek-harness/`: versioned DSH runtime, profiles, and plugins.
 - `mcp/`: independently deployable MCP capability services.
 - `infrastructure/`: local/production composition and shared data-plane setup.
@@ -11,6 +12,8 @@ The repository is split by deployable responsibility:
 ```text
 Portal -> Agent Control API -> DSH Runtime
                          \----> MCP Gateway (planned) -> MCP services
+
+Portal/DSH Gateway (planned) -> Runtime Manager -> one isolated DSH runtime per user
 
 File/Knowledge/Memory services (planned)
              -> PostgreSQL + Elasticsearch + MinIO

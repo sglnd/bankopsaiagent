@@ -9,6 +9,10 @@ as an out-of-tree bundle and does not patch the upstream source tree.
 The validated upstream revision is recorded in `upstream.lock.json`. All
 `@deepseek-ai/dsh-*` packages used by the local profile must remain on the
 matching version until the compatibility checks have passed for an upgrade.
+Because DSH release packages currently use prerelease-compatible dependency
+ranges, Docker also fixes npm's dependency resolution cutoff to the timestamp
+recorded as `dependencyResolveBefore`; this prevents a later prerelease from
+silently changing an already validated image build.
 
 ## Layout
 
@@ -33,14 +37,14 @@ state inside this repository so it is easy to inspect and discard:
 
 ```bash
 export DSH_HOME="$PWD/runtimes/deepseek-harness/.dsh-home"
-npx @deepseek-ai/dsh@0.1.0-rc.6 plugin --profile bankops-local add @deepseek-ai/dsh-headless@0.1.0-rc.6
-npx @deepseek-ai/dsh@0.1.0-rc.6 plugin --profile bankops-local add ./runtimes/deepseek-harness/plugins/bankops-change-impact
+npx @deepseek-ai/dsh@0.1.0-rc.7 plugin --profile bankops-local add @deepseek-ai/dsh-headless@0.1.0-rc.7
+npx @deepseek-ai/dsh@0.1.0-rc.7 plugin --profile bankops-local add ./runtimes/deepseek-harness/plugins/bankops-change-impact
 ```
 
 Confirm that the bundle is the final layer:
 
 ```bash
-npx @deepseek-ai/dsh@0.1.0-rc.6 --profile bankops-local --dump-config
+npx @deepseek-ai/dsh@0.1.0-rc.7 --profile bankops-local --dump-config
 ```
 
 The effective bundle order must be:
@@ -63,7 +67,7 @@ Production profiles should set `BANKOPS_*_MCP_URL` and change
 ```bash
 export DSH_HOME="$PWD/runtimes/deepseek-harness/.dsh-home"
 export DEEPSEEK_API_KEY="..."
-npx @deepseek-ai/dsh@0.1.0-rc.6 --profile bankops-local \
+npx @deepseek-ai/dsh@0.1.0-rc.7 --profile bankops-local \
   "分析变更单 CHG20260814001 的影响"
 ```
 

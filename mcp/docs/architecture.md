@@ -23,3 +23,7 @@ change of the official servers.
 
 The Hub currently has no cross-service authorization. The Docker network is
 only a connectivity boundary; it is not an access-control system.
+
+The per-user runtime ownership model, Skill scopes, MCP Gateway authorization,
+and Docker-to-Kubernetes provider mapping are defined in
+[per-user runtime isolation](per-user-runtime-isolation.md).

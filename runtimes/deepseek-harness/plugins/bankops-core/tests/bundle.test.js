@@ -8,7 +8,7 @@ test('declares the shared BankOps bundle', async () => {
   const manifest = JSON.parse(await readFile(new URL('package.json', root), 'utf8'))
   assert.equal(manifest.name, '@bankops/dsh-core')
   assert.equal(manifest.dsh.bundle.patch, './cordis.patch.yml')
-  assert.equal(manifest.dependencies['@deepseek-ai/dsh-mcp-client'], '0.1.0-rc.6')
+  assert.equal(manifest.dependencies['@deepseek-ai/dsh-mcp-client'], '0.1.0-rc.7')
 })
 
 test('owns the shared persona and exactly one client per MCP namespace', async () => {

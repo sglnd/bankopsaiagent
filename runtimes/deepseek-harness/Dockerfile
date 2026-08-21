@@ -1,13 +1,14 @@
 FROM node:24-bookworm-slim
 
-ARG DSH_VERSION=0.1.0-rc.6
+ARG DSH_VERSION=0.1.0-rc.7
+ARG DSH_RESOLVE_BEFORE=2026-08-18T00:00:00.000Z
 
 ENV NODE_ENV=production \
     DSH_HOME=/data/dsh
 
-RUN apt-get update \
-    && apt-get install --yes --no-install-recommends python3 make g++ \
-    && npm install --global "@deepseek-ai/dsh@${DSH_VERSION}" "pnpm@11.7.0" \
+RUN apt-get -o Acquire::Retries=5 update \
+    && apt-get -o Acquire::Retries=5 install --yes --no-install-recommends python3 make g++ \
+    && npm install --global --before="${DSH_RESOLVE_BEFORE}" "@deepseek-ai/dsh@${DSH_VERSION}" "pnpm@11.7.0" \
     && npm cache clean --force \
     && apt-get purge --yes --auto-remove python3 make g++ \
     && rm -rf /var/lib/apt/lists/*

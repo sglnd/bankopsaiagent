@@ -35,6 +35,19 @@ most one active runtime. Runtimes start on demand and stop after an idle
 timeout. PostgreSQL, Elasticsearch and MinIO remain shared platform services;
 isolation is enforced with tenant, department, user, workspace and ACL fields.
 
+The detailed state, Skill, MCP, and Kubernetes migration contract is recorded
+in [per-user runtime isolation](per-user-runtime-isolation.md).
+
+### Implemented local control-plane MVP
+
+- [x] Runtime Manager service with PostgreSQL lifecycle records and audit events.
+- [x] Runtime Provider boundary and local Docker provider.
+- [x] Database-enforced one non-deleted runtime per tenant user.
+- [x] Separate persistent DSH Home and Workspace volumes per user.
+- [x] Container deletion preserves user volumes by default.
+- [ ] Portal/DSH Gateway integration, idle leases, quotas, and automatic reconciliation.
+- [ ] Scoped Skill service/materialization and MCP Gateway enforcement.
+
 ### Phase 1 — runtime control plane and browser gateway
 
 - [ ] Add a Runtime Manager service and PostgreSQL migrations for runtimes,

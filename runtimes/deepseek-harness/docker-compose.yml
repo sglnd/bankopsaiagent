@@ -36,13 +36,57 @@ services:
       retries: 18
       start_period: 20s
 
+  runtime-manager:
+    build:
+      context: ../../services/runtime-manager
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:24-bookworm-slim}
+    image: bankops/runtime-manager:0.1.0
+    container_name: bankops-runtime-manager
+    restart: unless-stopped
+    init: true
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-bankops}:${POSTGRES_PASSWORD:-bankops-local-change-me}@postgres:5432/${POSTGRES_DB:-bankops}
+      BANKOPS_RUNTIME_INTERNAL_TOKEN: ${BANKOPS_RUNTIME_INTERNAL_TOKEN:-}
+      BANKOPS_RUNTIME_PROVIDER: docker
+      BANKOPS_RUNTIME_IMAGE: bankops/deepseek-harness:0.1.0-rc.7
+      BANKOPS_DSH_VERSION: 0.1.0-rc.7
+      BANKOPS_DOCKER_SOCKET: /var/run/docker.sock
+      BANKOPS_RUNTIME_NETWORK: bankops-network
+      BANKOPS_CHANGEINFO_MCP_URL: ${BANKOPS_CHANGEINFO_MCP_URL:-http://bankops-changeinfo-mcp:8941/mcp}
+      BANKOPS_CMDB_MCP_URL: ${BANKOPS_CMDB_MCP_URL:-http://bankops-cmdb-mcp:8942/mcp}
+      BANKOPS_ALERTINFO_MCP_URL: ${BANKOPS_ALERTINFO_MCP_URL:-http://bankops-alertinfo-mcp:8943/mcp}
+      BANKOPS_PERFINFO_MCP_URL: ${BANKOPS_PERFINFO_MCP_URL:-http://bankops-perfinfo-mcp:8944/mcp}
+      BANKOPS_KNOWLEDGE_MCP_URL: ${BANKOPS_KNOWLEDGE_MCP_URL:-http://bankops-knowledge-mcp:8952/mcp}
+      BANKOPS_MEMORY_MCP_URL: ${BANKOPS_MEMORY_MCP_URL:-http://bankops-memory-mcp:8953/mcp}
+      PORT: 8970
+    ports:
+      - "127.0.0.1:${BANKOPS_RUNTIME_MANAGER_PORT:-8970}:8970"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    group_add:
+      - "0"
+    networks:
+      - bankops-network
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8970/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
   harness:
     build:
       context: ../..
       dockerfile: runtimes/deepseek-harness/Dockerfile
       args:
-        DSH_VERSION: 0.1.0-rc.6
-    image: bankops/deepseek-harness:0.1.0-rc.6
+        DSH_VERSION: 0.1.0-rc.7
+        DSH_RESOLVE_BEFORE: 2026-08-18T00:00:00.000Z
+    image: bankops/deepseek-harness:0.1.0-rc.7
     container_name: bankops-deepseek-harness
     restart: unless-stopped
     init: true
@@ -88,8 +132,9 @@ services:
       context: ../..
       dockerfile: runtimes/deepseek-harness/Dockerfile
       args:
-        DSH_VERSION: 0.1.0-rc.6
-    image: bankops/deepseek-harness:0.1.0-rc.6
+        DSH_VERSION: 0.1.0-rc.7
+        DSH_RESOLVE_BEFORE: 2026-08-18T00:00:00.000Z
+    image: bankops/deepseek-harness:0.1.0-rc.7
     container_name: bankops-agent-api
     restart: unless-stopped
     init: true
@@ -169,6 +214,7 @@ services:
       BANKOPS_AGENT_API_TOKEN: ${BANKOPS_AGENT_API_TOKEN:-}
       BANKOPS_TENANT_ID: ${BANKOPS_TENANT_ID:-tenant-local}
       BANKOPS_DSH_URL: http://127.0.0.1:${HARNESS_PORT:-3080}
+      BANKOPS_RUNTIME_MANAGER_URL: http://runtime-manager:8970
       BANKOPS_PORTAL_HOST: 0.0.0.0
       BANKOPS_PORTAL_PORT: 8080
     ports:

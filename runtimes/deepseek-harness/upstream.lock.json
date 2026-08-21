@@ -1,12 +1,14 @@
 {
   "repository": "https://github.com/deepseek-ai/deepseek-harness",
-  "sourceCommit": "47f943859bef60e4160492346772ded9b24f765a",
-  "sourceCommitNote": "GitHub master release commit inspected for the plugin API; npm rc.6 was published later and did not expose gitHead metadata.",
-  "packageVersion": "0.1.0-rc.6",
-  "packagePublishedAt": "2026-08-13T12:35:03.812Z",
-  "committedAt": "2026-08-13T11:38:46Z",
-  "releaseCommitMessage": "release: dsh@0.1.0-rc.5 & publish the dsh family publicly",
-  "verifiedAt": "2026-08-14",
+  "sourceCommit": "99f6f02fecdb7dff40c3fbc9470f5907c29f74ca",
+  "sourceCommitNote": "Official GitHub merge commit for the DSH 0.1.0-rc.7 release; the npm package does not expose gitHead metadata.",
+  "packageVersion": "0.1.0-rc.7",
+  "packagePublishedAt": "2026-08-17T11:50:59.194Z",
+  "packageIntegrity": "sha512-ZceDCJ8FAywih+USW/OMk9jEhunlvJBGEz4kqrhau23hPzbciOazZrywH0nBRsaalSeAJ1JGBmjtw4OSjToStw==",
+  "dependencyResolveBefore": "2026-08-18T00:00:00.000Z",
+  "committedAt": "2026-08-17T11:03:17Z",
+  "releaseCommitMessage": "Merge pull request #2620 from deepseek-harness/release/dsh-0.1.0-rc.7",
+  "verifiedAt": "2026-08-21",
   "plugins": [
     {
       "name": "@omdsh-dev/dsh-genui",

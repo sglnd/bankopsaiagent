@@ -6,7 +6,7 @@
     "@bankops/dsh-core": "link:../../plugins/bankops-core",
     "@bankops/dsh-change-impact": "link:../../plugins/bankops-change-impact",
     "@bankops/dsh-knowledge-memory": "link:../../plugins/bankops-knowledge-memory",
-    "@deepseek-ai/dsh-headless": "0.1.0-rc.6"
+    "@deepseek-ai/dsh-headless": "0.1.0-rc.7"
   },
   "dsh": {
     "profile": {
